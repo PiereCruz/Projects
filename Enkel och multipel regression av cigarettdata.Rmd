@@ -1,0 +1,252 @@
+---
+title: "Laboration 0"
+author: "Piere Ventura Cruz och Simon Jorstedt"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+---
+
+
+# Data
+I uppgift 1 används fyra datafiler bestående av tillverkade observationer hämtade ur ”Graphs in statistical analysis” (The American Statistician, Vol 27, 1973, sid 17-21). I uppgift 2 används en datafil över fyra egenskaper uppmätta för cigaretter från 25 olika märken.
+
+```{r}
+data1 <- read.table("ansco1-win.dat", header = TRUE)
+data2 <- read.table("ansco2-win.dat", header = TRUE)
+data3 <- read.table("ansco3-win.dat", header = TRUE)
+data4 <- read.table("ansco4-win.dat", header = TRUE)
+
+data_cig <- read.table("cigarett-win.dat",
+                col.names=c("brand","tar","nico","weight","CO"),
+                header=FALSE)
+data_cig
+```
+
+# Uppgift 1
+Vi skall studera data genom att anpassa en (enkel) linjär regressionsmodell för vardera datamängd. Detta ger
+
+```{r}
+mod1 <- lm(y ~ x, data1)
+mod2 <- lm(y ~ x, data2)
+mod3 <- lm(y ~ x, data3)
+mod4 <- lm(y ~ x, data4)
+```
+
+## Sammanfattning av modellen för datamängd 1
+```{r}
+summary(mod1)
+```
+
+## Sammanfattning av modellen för datamängd 2
+```{r}
+summary(mod2)
+```
+
+## Sammanfattning av modellen för datamängd 3
+```{r}
+summary(mod3)
+```
+
+## Sammanfattning av modellen för datamängd 4
+```{r}
+summary(mod4)
+```
+
+Det första vi noterar är att alla modellerna har (ungefär) samma parametervärden. Modellen $y_i \approx 3 + 0.5 \cdot x_i$ beskriver tydligen alla datamängderna. När vi vidare analyserar parametrarnas p-värden så märker vi att de alla är signifikanta på åtminstone 95%-nivån. Modellerna har även ett justerat R^2-värde ($\approx 0.63$) som inte omedelbart bör konstateras lågt. Även modellernas p-värden (för parametrarna) samt de justerade R^2-värdena är lika. De fyra modellerna är tydligen i princip identiska. Vi går vidare med att visuellt undersöka datamängderna i figur 1.
+
+```{r, fig.show="hold", out.width="50%", fig.cap="Datamängderna 1-4 tillsammans med anpassade reglinjer."}
+plot(data1, main="Datamängd 1")
+abline(mod1$coefficients[1], mod1$coefficients[2])
+
+plot(data2, main="Datamängd 2")
+abline(mod2$coefficients[1], mod2$coefficients[2])
+
+plot(data3, main="Datamängd 3")
+abline(mod3$coefficients[1], mod3$coefficients[2])
+
+plot(data4, main="Datamängd 4")
+abline(mod4$coefficients[1], mod4$coefficients[2])
+
+
+#Ifall vi vill plotta residualerna. Jag tror inte vi vill det.
+#qqnorm(mod1$residuals)
+#qqline(mod1$residuals)
+
+#qqnorm(mod2$residuals)
+#qqline(mod2$residuals)
+
+#qqnorm(mod3$residuals)
+#qqline(mod3$residuals)
+
+#qqnorm(mod4$residuals)
+#qqline(mod4$residuals)
+```
+
+I datamängd 1 kan vi se ett möjligt linjärt samband, vilket tycks beskrivas bra med den linjära modellen. I datamängd 3 ser vi ett linjärt beteende i datan, bortsett från en outlier.
+
+Modellen verkar dock inte vara en bra anpassning för datamängd 2, som uppvisar ett troligt kvadratiskt beteende. Modellen är överhuvudtaget inte meningsfull för datamängd 4, som flera identiska x-värden samt en outlier.
+
+Det som rekomenderas för vidare analys är att anpassa en kvadratisk modell för datamängd 2. Eventuellt bör en ny linjär modell anpassas för datamängd 3 (utan outliern), och för datamängd 4 är det snarare aktuellt att använda sig av exempelvis en boxplot eller ett histogram för studera endast y-komponenten.
+
+Låt oss även genomföra en enkel linjär regression på datamängd 1, men med ombytta roller. Datamängd 1 (med ombytta axlar) tillsammans med den nya anpassade reglinjen finns i figur 2.
+
+```{r, fig.cap="Datamängd 1 samt anpassad regressionslinje med y-komponenten som förklarande variabel.", out.width="80%"}
+mod1_switch = lm(x ~ y, data1)
+
+plot(data1$y, data1$x,
+     main="",
+     xlab="y",
+     ylab="x")
+abline(mod1_switch$coefficients[1], mod1_switch$coefficients[2])
+```
+
+## Sammanfattning av modellen för datamängd 1
+Med omvända roller för variablerna.
+```{r}
+summary(mod1_switch)
+```
+
+Vi har att $y = a+bx \approx 3+0.5x$. Med detta i ryggen väntar vi oss inledningsvis att få $x = (y-a)/b \approx 2y - 6$. Men i summary av den anpassade modellen ser vi istället att $x \approx 1.3328y-0.9975$. Det råder alltså \textit{inte} samma regressionssamband när variablerna är ombytta. Möjligtvis säger detta oss att x-variabeln i datamängd 1 säger mer om y-variabeln, än y-variabeln säger om x-variabeln.
+
+
+# Uppgift 2
+Vi skall nu studera hur mängden tjära, nikotin samt vikten för en cigarett påverkar kolmonoxid-utsläppet vid rökning. Inledningsvis anpassar vi en (enkel) linjär modell för vardera tjära, nikotin och vikt som förklarande variabler för kolmonoxidutsläppet (CO). Detta ger följande resultat. Datan samt anpassade (enkla) reglinjer är plottade i figur 3.
+
+
+```{r, fig.show="hold", out.width="33%", fig.cap="Kolmonoxid plottad mot tjära, nikotin och vikt. Respektive modells reglinje är inkluderad."}
+
+mod_tar = lm(CO ~ tar, data_cig)
+mod_nic = lm(CO ~ nico, data_cig)
+mod_wei = lm(CO ~ weight, data_cig)
+
+plot(data_cig$tar, data_cig$CO,
+     main="Fig 3.1: CO ~ Tjära",
+     xlab="Tjära",
+     ylab="CO")
+abline(mod_tar$coefficients[1], mod_tar$coefficients[2])
+
+plot(data_cig$nico, data_cig$CO,
+     main="Fig 3.2: CO ~ Nikotin",
+     xlab="Nikotin",
+     ylab="CO")
+abline(mod_nic$coefficients[1], mod_nic$coefficients[2])
+
+plot(data_cig$wei, data_cig$CO,
+     main="Fig 3.3: CO ~ Vikt",
+     xlab="Vikt",
+     ylab="CO")
+abline(mod_wei$coefficients[1], mod_wei$coefficients[2])
+
+#qqnorm(mod_nic$residuals)
+#qqline(mod_nic$residuals)
+
+#qqnorm(mod_tar$residuals)
+#qqline(mod_tar$residuals)
+
+#qqnorm(mod_wei$residuals)
+#qqline(mod_wei$residuals)
+```
+
+
+## Sammanfattning av tjära-modellen
+```{r}
+summary(mod_tar)
+```
+
+## Sammafattning av nikotin-modellen
+```{r}
+summary(mod_nic)
+```
+
+
+## Sammanfattning av vikt-modellen
+```{r}
+summary(mod_wei)
+```
+
+
+## Sammanfattning av multipel-linjär regressionsmodell
+Med tjära, nikotin och vikt som förklaringsvariabler.
+```{r}
+mod_tnw = lm(CO ~ tar + nico + weight, data_cig)
+mod_tn = lm(CO ~ tar + nico + weight, data_cig[-1,])
+#summary(mod_tnw)
+matrix_new_coef = summary(mod_tn)$coefficients[1,1] #estimate without i:th row
+matrix_new_coef
+
+matrix_coef = summary(mod_tnw)$coefficients[1,1] #estimate alla rows included
+matrix_coef
+
+nr_data = nrow(data_cig) #number of N- value
+final_msep = 0 
+for(i in 1:25){
+        current = (data_cig[i,4] - matrix_new_coef)^2
+        final_msep = (final_msep + current)/nr_data
+}
+final_msep 
+#formeln ska se ut i form av MSEP = 1/nrow(filen)*sigma((mod_tnw-mod_tnw[-i])^2)
+
+```
+
+Lutningskoefficienterna i de enkla linjära modellerna anger att speciellt nikotin och vikt är associerade med ökat CO-utsläpp. Nikotin-koefficienten har dessutom ett mycket signifikant p-värde ($p \approx 3.31 \cdot 10^{-11}$) samt ett bra R^2 värde ($R^2_ {adj} \approx 0.85$). I vikt-modellen har lutningskoefficienten ett signifikant p-värde, men ett mycket lågt R^2-värde ($R^2_ {adj} \approx 0.18$) vilket kan tolkas som att vikt-modellen \textit{inte} beskriver variationen i data väl. I tjära-modellen ser vi en positiv association uppbackad av ett mycket signifikant p-värde ($p \approx 6.55 \cdot 10^{-14}$). Även R^2-värdet i tjära-modellen ($R^2_ {adj} \approx 0.91$) är högt vilket implicerar att tjära-modellen beskriver variationen i data väl.
+
+I den multipellinjära modellen är lutningskoefficienterna för nikotin och vikt förvånande negativa, med mycket höga p-värden vilket väcker våra misstankar. Tjära-koefficienten är däremot liknande motsvarande i den enkla modellen, återigen med ett lågt p-värde. För att undersöka data vidare plottar vi variablerna parvis i figur 4.
+
+```{r, out.width="50%", fig.show="hold", fig.cap="Vänster: Parvisa plottar för variablerna tjära, nikotin och CO. Höger: CO plottad mot tjära, nikotin och vikt."}
+pairs(data_cig[, -1])
+
+plot(data_cig$tar, data_cig$CO,
+     xlab="Tjära (svart), Nikotin (blå) och Vikt (röd)",
+     ylab="CO")
+points(data_cig$nico, data_cig$CO, col="blue")
+points(data_cig$weight, data_cig$CO, col="red")
+```
+
+I figur 4 verkar mängden tjära och nikotin positivt korrelerade. Vikt-datan verkar uppvisa mycket variation, och vara opålitlig för att beskriva CO-utsläppet. Men den parvisa plotten har stora brister; skalorna på x- och y-axlarna maskerar det faktum att nikotin och vikt egentligen är associerade med ökat CO-utsläpp i mycket högre grad än tjära. Till höger i figur 4 framgår det tydligt.
+
+Detta förklarar möjligtvis varför nikotin- och vikt-koefficienterna betedde sig underligt i multipel-modellen ovan. De är mycket starkt korrelerade. Det framgår även en brist i R^2 som förklaringsmått: I de enkla linjära modellerna ovan hade vikt-modellen ett mycket lägre R^2-värde än tjära-modellen, men i figur 4 (höger) är det tydligt att tjära-datan i själva verket är mycket mer utspridd än vikt-datan.
+
+Vi noterar en outlier i datan (BullDurham). Vi bestämmer oss därför för att genomföra de linjära regressionerna igen, men utan outliern. Först följer de enkla regressionerna, och därefter en multipel-regression med alla tre förklaringsvariabler.
+
+## Sammanfattning av tjära-modellen
+Exkluderande punkt 3 (BullDurham).
+```{r}
+mod_t = lm(CO ~ tar, data_cig[-3,])
+summary(mod_t)
+```
+
+## Sammafattning av nikotin-modellen
+Exkluderande punkt 3 (BullDurham).
+```{r}
+mod_n = lm(CO ~ nico, data_cig[-3,])
+summary(mod_n)
+```
+
+## Sammanfattning av vikt-modellen
+Exkluderande punkt 3 (BullDurham).
+```{r}
+mod_w = lm(CO ~ weight, data_cig[-3,])
+summary(mod_w)
+```
+
+## Sammanfattning av multipellinjär modell
+Med tjära, nikotin och vikt som förklarande variabler. Datapunkt 3 (BullDurham) är utesluten ur data.
+```{r}
+mod_tn = lm(CO ~ tar + nico + weight, data_cig[-3,])
+
+summary(mod_tn)
+```
+
+I de nya enkla linjära modellerna får vi liknande koefficienter jämfört med då outliern var inkluderad i data. Men vikt-koefficienten har minskat mycket, vilket antyder att outliern hade en stor inverkan på den enkla vikt-modellen. Både tjära och nikotin har fortfarande signifikanta p-värden, medan vikt-koefficienten har ett aningen mindre signifikant p-värde. Den enkla vikt-modellen har ett mycket lågt R^2-värde vilket återigen är anmärkningsvärt eftersom vikt-variabeln tydligt är mindre utspridd än tjära-variabeln som har ett högt R^2-värde.
+
+I den multipel-linjära modellen där outliern är utesluten ser vi återigen det underliga resultatet från den tidigare multipel-linjära modellen, men nu är koefficienterna för nikotin och vikt positiva, vilket är i linje med våra slutsatser från figur 4. Båda koefficienterna är dock låga, och har fortfarande höga p-värden. Multipel-modellen har ett något högre R^2-värde, vilket är väntat eftersom variationen minskar när vi tar bort en variation.
+
+Den nya multipel-modellen (exkluderande outliern) bör presenteras med försiktighet då det är okänt varför outliern stack ut. Det skulle kunna vara ett mätfel, eller så kanske BullDurham tillhör en serie "extrastarka" cigaretter. Utan sådan vetskap bör man därför vara försiktig med antaganden om hur bra modellen beskriver cigaretter som inte ingår i datamängden.
+
+Slutligen kan vi sammanfatta våra resultat med att mängden nikotin och vikten är mycket bra prediktorer för CO-utsläppet. Tjära är också associerat med CO, men i mycket mindre grad. Däremot kan möjligtvis tjära vara relevant som prediktor om man skulle eftertrakta högre precision.
+
+För att konkret kunna mäta och jämföra modellernas prediktiva förmågor skulle vi behöva samla in testdata för att testa modellerna, eftersom hela datamängden har använts som träningsdata. Det är därför svårt och opålitligt att uttala sig om modellerna ovan utan vidare analys.
+
+
