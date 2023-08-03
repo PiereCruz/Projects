@@ -1,0 +1,320 @@
+````{r}
+
+data <- read.table('betong-win.dat')
+
+
+data[27,1] <- 2777
+
+filial <- rep(0:10, 4)
+data.mätfel <- cbind(filial, data)
+data.mätfel$filial <- factor(data.mätfel$filial, 
+                     levels = c(0:10))
+
+data.mätfel[27,2] <- 2777
+data.mätfel
+
+for (i in 1:nrow(data.mätfel)) {
+  if (data.mätfel[i,1] == 0) {
+    for (j in 2:ncol(data.mätfel)) {
+        y <- data.mätfel[i,j]
+        for (k in i:(i+10)) {
+          data.mätfel[k,j] <- data.mätfel[k,j] - y
+        }
+      }
+    }
+  }
+
+
+data.mätfel <- data.mätfel[-c(1,12,23,34),]
+data.mätfel
+
+
+v.filial <- NULL
+for (i in 1:10) {
+  v.filial <- append(v.filial, rep(i,10))
+}
+v.filial <- append(v.filial, rep(v.filial, 3))
+
+v.rör <- NULL
+for (i in 1:10) {
+  v.rör <- append(v.rör, 1:10)
+}
+v.rör <- append(v.rör, rep(v.rör, 3))
+
+v.mätfel <- NULL
+for (i in 1:nrow(data.mätfel)) {
+  for (j in 2:ncol(data.mätfel)) {
+    v.mätfel <- append(v.mätfel, data.mätfel[i,j])
+  }
+}
+
+
+df <- data.frame('filial' = v.filial,
+                 'rör' = v.rör,
+                 'mätfel' = v.mätfel)
+
+df$filial <- factor(df$filial,
+                    levels = 1:10)
+       
+df$rör <- factor(df$rör,
+                 levels = 1:10)
+
+df
+# Fråga 1
+df1 <- df
+boxplot(mätfel ~ filial, data = df1)
+df1
+m1.samspel <- aov(mätfel ~ filial + rör + filial:rör - 1, data = df1)
+summary(m1.samspel)
+# inget samspel
+
+# model 1
+m1 <- aov(mätfel ~ filial + rör - 1, data = df1)
+summary(m1)
+model.tables(m1)
+
+# rören har ingen effekt på mätfelen
+
+# Residual och QQplott
+par(mfrow = c(1,2))
+plot(m1, which = c(1,2))
+
+# histogram residualer 
+hist(m1$residuals)
+
+par(mfrow = c(1,2))
+plot(m1$residuals, df1$rör,
+     xlab = 'Residualer',
+     ylab = 'Rör')
+plot(m1$residuals, df1$filial,
+     xlab = 'Residualer',
+     ylab = 'filial')
+
+
+interaction.plot(x.factor = df1$filial, trace.factor = df1$rör,
+                 response = df1$mätfel, fun = mean,
+                 type = 'l', legend = TRUE, 
+                 xlab = 'Filial',
+                 ylab = 'Y')
+df2
+# Fråga 2
+
+v_filial <- NULL
+
+for (i in 1:10) {
+    v_filial <- append(v_filial, rep(i,40))
+}
+
+v_mått <- NULL
+for (i in c('IDmin', 'IDmax', 'YDmin', 'YDmax')) {
+  v_mått <- append(v_mått, rep(i,10))
+}
+v_mått <- rep(v_mått, 10)
+
+
+
+v_mätfel <- NULL
+for (i in 1:40) {
+  for (j in 1:10) {
+    v_mätfel <- append(v_mätfel, data.mätfel[i,j])
+  }
+}
+
+df2 <- data.frame('filial' = v_filial,
+                  'mått' = v_mått,
+                  'mätfel' = v_mätfel)
+
+df2$filial <- factor(df2$filial,
+                     levels = c(1:10))
+
+df2$mått <- factor(df2$mått, 
+                   levels = c('IDmin', 'IDmax', 'YDmin', 'YDmax'))
+df2
+m2 <- aov(mätfe l ~ mått + filial + mått:filial -1, data = df2)
+summary(m2)
+  model.tables(m2)
+
+mått + filial + mått:filial + Error(rör)
+m2$model
+
+
+par(mfrow = c(1,1))
+interaction.plot(x.factor = df2$mått, trace.factor = df2$filial,
+                 response = df2$mätvärden, fun = mean,
+                 type = 'l', legend = TRUE, 
+                 xlab = 'Mått',
+                 ylab = 'Mätvärden',
+                 col = 1:10)
+
+par(mfrow = c(1,2))
+boxplot(mätfel ~ mått, data = df2)
+boxplot(mätfel ~ filial, data = df2)
+
+data.mätfel
+par(mfrow = c(1,2))
+plot(m2, which = c(1,2))
+
+# Cauchy
+hist(m2$residuals)
+
+par(mfrow = c(1,2))
+  plot(m2$residuals, df2$filial,
+     xlab = 'Residualer',
+     ylab = 'Filial')
+plot(m2$residuals, df2$mått,
+     xlab = 'Residualer',
+     ylab = 'Mått')
+
+
+
+df2
+
+
+# Uppgift 3
+
+v <- rep(0:10, 4)
+
+data.filial <- cbind(v, data)
+data.filial <- data.filial[-c(1,12,23,34),]
+data.filial
+
+# huvudanstalt
+
+data.huvud <- data[c(1,12,23,34),]
+
+huvud.ID.min <- data.huvud[1,]
+huvud.ID.max <- data.huvud[2,]
+huvud.YD.min <- data.huvud[3,]
+huvud.YD.max <- data.huvud[4,]
+
+huvud.YD.min
+huvud.YD.max
+
+# resultat, avvikelser i procent
+huvud.ID.rund <- 100 * (huvud.ID.max - huvud.ID.min) / ((huvud.ID.max + huvud.ID.min)/2)
+print(sum(huvud.ID.rund) / 10)
+
+huvud.YD.rund <- 200 * (huvud.YD.max - huvud.YD.min) / (huvud.YD.max + huvud.YD.min)
+print(sum(huvud.YD.rund) / 10)
+
+# filialer 
+
+data
+
+ID.min <- data[2:11,]
+ID.max <- data[13:22,]
+YD.min <- data[24:33,]
+YD.max <- data[35:44,]
+
+ID.min
+ID.max
+
+YD.min
+YD.max
+
+ID.diff <- ID.max - ID.min
+YD.diff <- YD.max - YD.min
+
+ID.diff
+YD.diff
+# ID
+
+huvud.ID.max - huvud.ID.min
+ID.diff
+
+# 2, 4, 9, 10
+
+v.IDdiff <- NULL
+
+for (i in 1:10) {
+  for (j in 1:10) {
+    v.IDdiff <- append(v.IDdiff, ID.diff[i,j])
+  }
+}
+
+
+v3.filial <- NULL
+for (i in 1:10) {
+  v3.filial <- append(v3.filial, rep(i,10))google
+}
+v3.filial <- append(v3.filial, v3.filial)
+
+v3.mått <- NULL
+v3.mått <- rep('ID', 100)
+v3.mått <- append(v3.mått, rep('YD', 100))
+
+df3.ID <- data.frame('filial' = v3.filial,
+                     'mått' = v3.mått,
+                     'diff' = v.IDdiff)
+
+df3.ID
+df3.ID$filial <- factor(df3.ID$filial,
+                        levels = 1:10)
+
+df3.ID$mått <- factor(df3.ID$mått,
+                      levels = c('ID','YD'))
+
+df3.ID
+m3.ID <- aov(diff ~ filial + mått, data = df3.ID)
+summary(m3.ID)
+model.tables(m3.ID)
+
+
+
+huvud.YD.max - huvud.YD.min
+YD.diff
+
+
+boxplot(mätfel ~ filial, data = df2[1:200,])google
+
+# ID
+# alla utom 4 och 6
+
+ID.diff
+
+data
+
+ID
+
+# ID
+# alla
+
+ID.rund <- (100 * ((ID.max-ID.min) / ((ID.max + ID.min)/2)))
+ID.rund.medel <- NULL
+
+for (i in 1:nrow(ID.rund)) {
+    ID.rund.medel[i] <- sum(ID.rund[i,]) / 10
+}
+
+
+ID.rund.medel
+
+print(sum(huvud.ID.rund) / 10)
+
+sum(ID.rund.medel) / 10
+
+# ID
+# utan 4 och 6
+
+
+ID.rund2.medel <- NULL
+for (i in c(1,2,3,5,7,8,9,10)) {
+  ID.rund2.medel[i] <- sum(ID.rund[i,]) / 10
+}
+
+data
+
+ID.rund2.medel <- na.omit(ID.rund2.medel)
+
+huvud.ID.rund
+ID.rund.medel
+ID.rund2.medel
+
+print(sum(huvud.ID.rund) / 10)
+
+sum(ID.rund2.medel) / 8
+
+100 * ((0.1292633 - 0.1127211) / (0.1292633))
+````
+
+
