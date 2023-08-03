@@ -1,0 +1,105 @@
+---
+title: "project 1"
+author: "Piere"
+date: '2021-11-14'
+output: github_document
+---
+This project has two parts. The first one about apartment prices and the second about covid cases.
+
+Exercise 1: Apartment prices
+
+The first exercise contains sales from data on 158 apartments in Ekhagen and we are going to fullfill the following tasks:
+
+llustrate how Soldprice depends on Livingarea with a suitable figure.
+llustrate trends in Soldprice / Livingarea over the period.
+llustrate an aspect of data using a table.
+llustrate an aspect of data using a boxplot (geom_boxplot).
+
+```{r echo=FALSE}
+defaultW <- getOption("warn")
+options(warn = -1)
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(readxl)
+
+apartment_stats <- read.csv("Booli_sold.csv", header = TRUE)
+apart_sort <- apartment_stats 
+liv_sold<-apart_sort %>%
+  mutate(price_area=soldPrice/livingArea,rooms = as.character(rooms),published = as.Date(published))
+
+ggplot(liv_sold, aes(x=livingArea,y=soldPrice))+geom_point()+scale_x_log10()+ggtitle("Sold price for the living area")
+ggplot(liv_sold, aes(x=livingArea,y=soldPrice))+geom_point()+scale_x_log10()+facet_wrap(~ constructionYear)+ggtitle("Sold price for the living area between 1931-1969")
+ggplot(liv_sold, aes(x=rooms,y=constructionYear))+geom_boxplot()+ggtitle("Amount of rooms of apartments for each year")
+options(warn = defaultW)
+```
+
+The first plot shows livingArea against the soldPrice. I decided to go with a scatter plot because it shows the relation between livingArea and soldPrice. We can see that the bigger the area is for the apartment the expensier it becomes. Some points tends to a vertical line which says that only the soldPrice changes and the livingArea is the same. This could be explained by others factors such as year of the building or where the building is located etc.
+The second plot shows a division of the sold price against the living area but for each construction year. We can see that in year 1935 were the highest amount of apartments sold under 5 million and year 1934 was the lowest.
+In the third plot i decided to illustrate the data  of rooms of apartments for each year as a box plot. We can see that it is very common for an apartment to have 2-3 rooms. The as.factor(contructionYear) in the x axis divides the years so for each year we want to stack the number of rooms there.
+
+
+Exercise 2: Folkhälsomyndigheten COVID cases and why excel might not be your friend
+
+This second exercise contains data on COVID-19 cases in Sweden. The data was obtained through Folkhälsomyndigheten’s webpage on the 1st of October 2020. Due to the fact that we downloaded it manually on a specific date, reproduceability might be an issue since COVID cases might be updated. 
+Our task is to data wrangling but also do some statistic analysis and plotting.
+
+````{r echo=FALSE}
+defaultW <- getOption("warn")
+options(warn = -1)
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(readxl)
+##prints out the sheets as tibbles
+x1_data <- "Folkhalsomyndigheten_Covid19.xlsx"
+tab_names <- excel_sheets(path = x1_data)
+tabbles <- x1_data %>%
+  excel_sheets() %>%
+  set_names() %>%
+  map(read_excel,path = x1_data) 
+tabbles    
+
+##prints out the first and last 5 rows of the sheet named "antal avlidna per dag" in a tibble
+sheet2 <- read_excel(path = x1_data, sheet = 2, n_max = 203)
+first_last_rows <- sheet2[-c(6:198),]
+knitr::kable(first_last_rows,"pipe")
+
+##changes the type of the column "veckodata kommun_stadsdel" into a dbl
+sheet8 <- tabbles$'Veckodata Kommun_stadsdel'
+numeric_sheet8 <- sheet8 %>%
+  mutate(tot_antal_fall = as.numeric((sub('<','',sheet8$tot_antal_fall))),
+         nya_fall_vecka = as.numeric((sub('<','',sheet8$nya_fall_vecka)))) 
+numeric_sheet8
+##counts the total amount of cases and cases for each region
+x1_data %>%
+  read_excel()%>%
+  summarise(across(where(is.numeric))) %>%
+  colSums
+  
+##plottings
+sheet1 <- read_excel(path = x1_data, sheet = 1)
+march_15 <- sheet1[-c(1:40),]
+
+ggplot(march_15,aes(x=Statistikdatum,y=Totalt_antal_fall))+geom_line()+ggtitle("Total number of covid cases since 15th of march")
+ggplot(numeric_sheet8, aes(x=veckonummer,y=tot_antal_fall))+geom_col()+ggtitle("Total amount of cases per week")
+ggplot(numeric_sheet8, aes(x=veckonummer, y = nya_fall_vecka))+geom_col()+ggtitle("Total amount of new cases per week")
+options(warn = defaultW)
+````
+
+We see that there are 9 sheets in total. Each sheet tells us something different, but to make a summarize of all the sheets can we say that the data set shows us the amount of covid cases/deaths per day. It also divides the amount of cases in genders, regions
+and age. To end the summarize we also get the date on which the cases occurred also the amount of people who got intense caring for every day. Observe that this data set is only limited and does not include newest cases.
+
+We do not seem to get any problems when we try to display the first and last 5 rows. What i did was to first select the 2nd sheet, "antal avlidna per dap" and then revomed the last row because it didnt contain a date but it did contain a number. After removing that row I just removed the rows given as a vector from 6:198 and what's left is the 5 first and last rows.
+
+The thing read_excel does is to guess the column types based on what the columns are in excel. In our case though that column does not have any values except from a title. So what it does instead is to interpreter as logical and give us "NA". To fix this problem we can simply remove the column by skiping the col_types.
+
+The reason why we get chr instead of dbl (a floating point number) is because of the sign "<". We get this sign in both tot_antal_fall and nya_fall_vecka. One thing that can be done in order to fix this is to maybe approximate the cases and give them the limit of 15 in this we can remove the "<" sign and in this way we can then change chr to a dbl. That's the option i choose to go for.
+
+The total amount of cases can be computed adding the code summarize the sum och the column "totalt_antal_fall" and we get that in total there was 92863 cases registered. By arranging the table we can say that stockholm had the most cases of covid and gotland got the lowest. One thing we cant determine by the table is how much percentage of the cases represents each region. This could be misleading in a way because one wont know if it is a huge number or not for that certain region. One thing one can do is find out the population of that region and use that information to find out the actual percentage based on the cases.
+
+The dataframe that produced the figure in c is suppose to have 10626 rows and sorted from week 6 to week 38. What ggplot did without telling us is to interpreter each week as a variable from 6-38. Else it would was to interpreter each week number as an x-variable that means we will have had over 10000 variables on the x-axis (we did avoid this by changing chr to dbl). This would had give our table c a very tight and clumsy character.
+
+````{r echo=FALSE}
+sessionInfo()
+````

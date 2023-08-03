@@ -1,0 +1,237 @@
+---
+title: "project 2"
+author: "Piere"
+date: '2022-11-21'
+output: github_document
+---
+
+Exercise 1:Marketing, conversions and conversions lags
+
+The data contains who buys on that site (conversions). The data has been simplified a lot, but you can imagine it being from a site that rents out rooms for hotels. The database represents customers coming from a search engine (e.g. google), pressing an ad (a “click”) and whether or not they bought something (if a conversion occurred). There are two tables, “Clicks” and “Conversion_value”. Each id represent a unique customer. Our following tasks will be:
+
+a)Visualize the number of clicks made on each day (date).
+
+b)Given that there is a cost to each click, which day of the week has been most costly? Hint: there are many ways to solve to problem, but have a look at lubridate::wday.
+
+c)Make a histogram of the conversion value customers provided.
+
+d)The “Conversion lag” (CL) of a customer is the number of days from the customer clicked on an ad to the customer bought something/converted. An example is that the customer clicked an add on the first on January and rented a room on the third of January. The CL is then equal to 2. Plot its distribution in R, interpret and comment on the results. Hint: Google on how to take differences of dates. If you want to write a full SQL solution you can use julianday.
+
+e)Present two tables on the following format
+
+1a) 
+
+```{r echo=FALSE, warning = FALSE, message = FALSE}
+library(RSQLite)
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(readxl)
+library(lubridate)
+library(leaflet)
+library(mapview)
+con <- dbConnect(RSQLite::SQLite(), "seo_marketing_data.sqlite")
+# List all available tables
+#dbListTables(con)                            
+
+#visualize the number of clicks made on each day (date)
+df1 <- dbReadTable(con, "Clicks")
+#df1
+df2 <- dbReadTable(con, "Conversion_value")
+#df2
+df_clicks <- dbReadTable(con, "Clicks")%>%
+  mutate(date = as.Date(date))%>%
+  count(date) %>%
+  ggplot(aes(x = date,y = n)) + geom_col()+ ggtitle("Number of clicks for each date")
+df_clicks
+```
+
+A visualization of the number of clicks for each date.
+
+1b)
+
+```{r echo=FALSE}
+#turns the dates into days and then counts which day has the highest value
+df_clicks <- dbReadTable(con, "Clicks")%>%
+  mutate(date = wday(date,label = TRUE))%>%
+  count(date)%>%
+  knitr::kable()
+df_clicks
+```
+We can see in the table that monday has been the most costly day.
+
+1c)
+
+```{r echo = FALSE, warning = FALSE, message = FALSE}
+conversion_values <- dbReadTable(con,"Conversion_value")%>%
+  ggplot(aes(x=value))+ geom_histogram() + ggtitle("Conversion value customers provided")
+conversion_values
+```
+
+A visualization of the conversion value for each customer that provided.
+
+1d)
+
+```{r echo = FALSE, warning=FALSE, message=FALSE}
+#merges both tibbles and shows the difference in days between date.clicked and date.bought
+day_diff <- df2 %>%
+  inner_join(df1, by = "id", suffix = c(".bought", ".clicked")) %>%
+  mutate(date.clicked = as.Date(date.clicked), date.bought = as.Date(date.bought))%>%
+  mutate(conversion_lag = date.bought - date.clicked)%>%
+  select(id,conversion_lag) %>%
+  ggplot(aes(x=conversion_lag)) + geom_histogram() + ggtitle("Conversion lag of customers")
+day_diff
+```
+
+A visualization over the "conversion lag" of a customer.
+
+1e)
+
+```{r echo = FALSE}
+
+day_diff_test_avg <- df2 %>%
+  inner_join(df1, by = "id", suffix = c(".bought", ".clicked")) %>%
+  mutate(date.clicked = as.Date(date.clicked), date.bought = as.Date(date.bought))%>%
+  mutate(conversion_lag = date.bought - date.clicked) %>%
+  spread(key = conversion_lag, value = value)%>%
+  replace(is.na(.),0)%>%
+  group_by(date.clicked)%>%
+  select(-id,-date.bought,-adgroup)%>%
+  group_by(date.clicked) %>%
+  summarise(across(everything(), mean))%>%
+  arrange(date.clicked)%>%
+  tail(5)%>%
+  knitr::kable()
+day_diff_test_avg
+
+day_diff_test_sum <- df2 %>%
+  inner_join(df1, by = "id",suffix = c(".bought", ".clicked")) %>%
+  mutate(date.clicked = as.Date(date.clicked), date.bought = as.Date(date.bought))%>%
+  mutate(conversion_lag = date.bought - date.clicked) %>%
+  mutate(clicks = 1) %>%
+  spread(key = conversion_lag, value = clicks)%>%
+  replace(is.na(.),0)%>%
+  group_by(date.clicked)%>%
+  select(-id,-value,-adgroup,-date.bought) %>%
+  group_by(date.clicked) %>%
+  summarise(across(everything(), sum)) %>%
+  arrange(date.clicked)%>%
+  tail(5)%>%
+  knitr::kable()
+day_diff_test_sum
+```
+
+The first table shows the average of the conversion value for each CL during a certain date. The second table shows the sum of number of clicks for each CL during a certain date.
+
+
+Exercise 2: SL lines
+
+Our data contains all SL’s current stops, lines, and the stops on each line. The data are obtained from a call to TrafikLab’s SL Hållplatser och Linjer 2 API on 2019-11-17 using the httr package. Note: Trafiklab has further documentation of the API and the variables.Our tasks are the following:
+
+a)b) List all variables and figure out and describe how the tables relate to each other.
+c) Present a table of the number of active unique rail traffic stops (i.e. train, tram or metro stops in each ticket zone (ZoneShortName in stopAreas/stopPoints). By “active” we mean stops that are part of the journey pattern (as defined in journeyPatterns) of a line.
+d) Choose a line, and plot the stops as points on a map with the name of each stop as a label. Write the code in such a way that it is easily reusable if you want to plot another line. In order to produce a map use the latitude and longitude coordinates and generate the plot using leaflet package.
+e)Consider the stopAreas and stopPoints tables and comment on the sparsity of this data presentation, e.g., are there any (unnecessary) redundancies? Suggest a more sparse data model for the stopAreas table and perform the appropriate table operations to obtain this sparser representation and store it in the data.frame stopAreas_sparse. Explain how one would get the original stopAreas data.frame using joins. Note: A very operational way to check memory consumption for storing a variable in R is to use the object.size function.
+
+2a,b)
+
+```{r echo = FALSE, warning=FALSE, message=FALSE}
+con_sl <- dbConnect(RSQLite::SQLite(), "sl-api.sqlite")
+# List all available tables
+#dbListTables(con_sl)
+
+df_journey_patterns <- dbReadTable(con_sl, "journeyPatterns")%>%
+  mutate(JourneyPatternPointNumber = as.numeric(JourneyPatternPointNumber))
+#df_journey_patterns
+
+df_lines <- dbReadTable(con_sl, "lines")
+#df_lines
+
+df_sites<- dbReadTable(con_sl, "sites") %>%
+  mutate(SiteId = as.numeric(SiteId)) %>%
+  mutate(StopAreaNumber = as.numeric(StopAreaNumber))
+#df_sites
+
+df_stop_areas <- dbReadTable(con_sl, "stopAreas") %>%
+  mutate(StopPointNumber = as.numeric(StopPointNumber), StopAreaNumber = as.numeric(StopAreaNumber))
+#df_stop_areas
+
+df_stop_points<- dbReadTable(con_sl, "stopPoints")%>%
+  mutate(StopPointNumber = as.numeric(StopPointNumber), StopAreaNumber = as.numeric(StopAreaNumber))
+#df_stop_points
+
+df_transport_modes<- dbReadTable(con_sl, "transportmodes")
+#df_transport_modes
+```
+JourneyPatterns describes a unique journey pattern for a line number. Lines describe an overview of which line number it is, also what kind of transportation for example bus or train. StopAreas describes the names of the stop checkpoints for the transportation also in which zone you are located. Sites pretty summarizes pretty much stopAreas. These are grouped and described as site names. Stoppoints shows where the transportation will make its stop in a certain zone. The coordinates of the stop location is also give as northing and easting coordinates. Finally transportmodes describes the mode of transportation either bus, boat, metro or tram.
+
+2c)
+
+```{r echo = FALSE, warning=FALSE, message=FALSE}
+df_stop_points %>%
+  count(ZoneShortName,StopAreaTypeCode) %>%
+  spread(key = StopAreaTypeCode, value = n)%>%
+  select(-BUSTERM,-FERRYBER,-SHIPBER,-UNKNOWN)%>%
+  slice(-1)%>% #removes the row 1. if u want to remove more rows give them as a vector -c(1,2,3)
+  replace(is.na(.),0) %>%
+  knitr::kable()
+```
+
+A summary of the rail traffic stops in each ticket zone.
+
+2d)
+
+```{r echo = F, warning = F, message= F}
+route_map <- df_journey_patterns %>%
+  filter(LineNumber == 2)%>%  #type in the line number
+  inner_join(df_stop_points, by = c("JourneyPatternPointNumber" = "StopPointNumber"))%>% 
+   mutate(LocationEastingCoordinate = as.numeric(LocationEastingCoordinate),LocationNorthingCoordinate = as.numeric(LocationNorthingCoordinate)) %>%
+  leaflet()%>%
+  addTiles() %>%
+  addMarkers(lng = ~LocationEastingCoordinate, lat = ~LocationNorthingCoordinate, popup = ~StopPointName)
+#route_map
+mapshot(route_map, file = "Leaflet-plot.png")
+knitr::include_graphics("Leaflet-plot.png")
+```
+
+A visualization of line 2, Barnängen (starting from the bottom), all the way to Sveaplan (ending at the top) and its stop points. 
+
+2e) 
+
+```{r echo = F, warning = F, message= F}
+#object.size(df_stop_areas)
+
+#object.size(df_stop_points)
+#all.equal(df_stop_areas,df_stop_points)
+
+df_stop_areas_<- select(df_stop_points, StopAreaNumber, StopPointName, ZoneShortName, StopAreaTypeCode)%>%
+  distinct()
+
+
+df_stop_points_ <- select(df_stop_points, StopAreaNumber, LocationNorthingCoordinate, LocationEastingCoordinate, LastModifiedUtcDateTime, ExistsFromDate) %>%
+  distinct()
+
+
+#object.size(df_stop_areas_) + object.size(df_stop_points_)
+#object.size(inner_join(df_stop_areas_,df_stop_points_))
+
+```
+
+Both tables are identical to each other. I did an object size on both tibbles and they had the same amount of bytes. I also used a function called all.equal which tells us if the two tibbles are identical which came to be true. However thought the stop areas has doublets if not more of the same stop points and these are seen as redundant. It perhaps has to do with the stop stations and could be that there are several stations in the same area with the same name. Joining by the stopAreaNumber with help of a inner join we can then get rid of the stop point number because we already know the stop checkpoint it is made by the stop area number.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
