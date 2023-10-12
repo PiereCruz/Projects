@@ -1,0 +1,215 @@
+---
+title: "Score-, Wald- and likelihood ratio tests"
+author: "gean piere ventura cruz"
+date: '2022-10-01'
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+library(RCurl)
+set.seed(960618) 
+link <- "https://raw.githubusercontent.com/mskoldSU/MT5003_HT17/master/Projekt/proj_data.csv"
+data_individ <-read.csv(file = link)
+data_individ
+idx <- sample(1:nrow(data_individ), 1000)
+data_individ <- data_individ[idx, ]
+save(data_individ, file = "proj_data.Rdata")
+```
+
+
+```{r, echo=FALSE}
+L <- function(theta, y, X, N){
+  pi <- matrix(0, nrow = 1, ncol = N)
+  for (i in 1:N) {
+    pi[i]<- 1/(1+exp(-X[i,]%*%theta))
+  }
+  likelihood <- prod(dbinom(y,1,pi)) 
+  return(likelihood)
+}
+
+#L(theta0,y,X,1000) 
+
+l <- function(theta, y, X, N){
+  log_likelihood <- L(theta, y,X,N)
+  return(log(log_likelihood))
+}
+
+#l(theta0,y,X,1000)
+
+S <- function(theta, y, X, N){
+  p <- matrix(0, nrow = 1, ncol = N) 
+  for (i in 1:N){
+    p[i] <- 1/(1+exp(-X[i,]%*%theta)) #creating the p vector
+  }
+  transposed_p <- t(p) #transpose p vector 
+  score <- t(X)%*%(y-transposed_p)
+  return(score)
+}
+
+#S(theta0,y,X,1000)
+
+I <- function(theta, y, X, N){
+  v <- matrix(0, nrow = 1, ncol = N)
+  for (i in 1:N) {
+    v[i] <- (1/(1+exp(-X[i,]%*%theta)))%*%(1-(1/(1+exp(-X[i,]%*%theta)))) #creating the v vector and storing it in a diagonal matrix
+  }
+  D <- diag(as.vector(v))
+  return(t(X)%*%D%*%X)
+}
+
+#I(theta0,y,X,1000)
+
+NR <- function(theta0, niter, y, X){
+  old_theta <- theta0
+  for (i in 1:niter){
+    theta_ml <- old_theta+solve(I(old_theta,y ,X, 1000))%*%S(old_theta, y, X, 1000)
+    old_theta <- theta_ml
+  }
+  return(theta_ml) 
+}
+
+modell <- glm(Resultat ~ Alder + Kon + Utbildare,
+              data = data_individ,
+              family = "binomial")
+
+#summary(modell)
+
+y <- matrix(data_individ$Resultat, ncol = 1)
+X <- model.matrix(Resultat ~ Alder + Kon + Utbildare, data = data_individ)
+
+
+#head(data_individ[,-1])
+theta0 <- c(0,0,0,0)
+theta_est <- c(NR(theta0, niter = 3, y, X))
+
+#theta_est #estima
+
+ml_theta <- NR(theta0, niter = 3, y, X)
+#ml_theta
+stde_test <-c()
+stde_test[1] = solve(I(ml_theta,y,X,1000))[1,1]
+stde_test[2] = solve(I(ml_theta,y,X,1000))[2,2]
+stde_test[3] = solve(I(ml_theta,y,X,1000))[3,3]
+stde_test[4] = solve(I(ml_theta,y,X,1000))[4,4]
+
+standard_error <- sqrt(stde_test) #std error
+#standard_error
+```
+
+Task 1:
+
+we will be using the code from the "Likelihood, numerical optimization and the Bootstrap" project in order for us to estimate the z-values with help of the wald statistic and then compare these with the glm table.
+
+```{r}
+summary(modell)
+wald_statistics <- theta_est/standard_error
+wald_statistics
+```
+
+This indeed matches our z-values of the output,
+
+Task 2:
+
+in this part we will use the generalized likelihood ratio statistics that corresponds to the wald statistics in the first task and then determine the p values.
+
+```{r}
+#the order is interceopt, alder, kon, utbvildning
+
+eta_intercept <- NR(theta0 = c(0, 0, 0), niter = 10, y = y, X = X[, -1])
+theta_intercept <- c(0,eta_intercept)
+#theta_intercept
+
+eta_alder <- NR(theta0 = c(0, 0, 0), niter = 10, y = y, X = X[, -2])
+theta_alder <- c(eta_alder[1],0,eta_alder[2],eta_alder[3])
+#theta_alder
+
+eta_kon <- NR(theta0 = c(0, 0, 0), niter = 10, y = y, X = X[, -3])
+theta_kon <- c(eta_kon[1],eta_kon[2],0,eta_kon[3])
+#theta_kon
+
+eta_utbildare <- NR(theta0 = c(0, 0, 0), niter = 10, y = y, X = X[, -4])
+theta_utbildare <- c(eta_utbildare,0)
+#theta_utbildare
+
+
+L_est_theta_intercept <- 2*log(L(theta_est,y,X,1000)/L(theta_intercept,y,X,1000))
+#L_est_theta_intercept
+L_est_theta_alder <- 2*log(L(theta_est,y,X,1000)/L(theta_alder,y,X,1000))
+#L_est_theta_alder
+L_est_theta_kon <- 2*log(L(theta_est,y,X,1000)/L(theta_kon,y,X,1000))
+#L_est_theta_kon
+L_est_theta_utbildare <- 2*log(L(theta_est,y,X,1000)/L(theta_utbildare,y,X,1000))
+#L_est_theta_utbildare
+
+pchisq(L_est_theta_intercept,df = 1, lower.tail = FALSE)
+pchisq(L_est_theta_alder,df = 1, lower.tail = FALSE)
+pchisq(L_est_theta_kon,df = 1, lower.tail = FALSE)
+pchisq(L_est_theta_utbildare,df = 1, lower.tail = FALSE)
+```
+The corresponding p-values seem to be quite similar to our output. The p values for theta_alder and theta_utbildare are a slightly bit different to the ones from the output. We denote that the wald statistic is asymptotically standard normal distributed and the likelihood ratio is chi2 distributed with 1 degree pf freedom. If you would take a standard normalised variabel X and square it, then it turns out to be chi2 distributed.
+
+Task 3:
+
+In this part we are going to Compute the ML estimate of the variables (θAlder,θUtbildare) under H0:θ=(θintercept,θKon)=(0,0) and use this to determine a P-value based on the generalized score statistic.
+
+```{r}
+eta_test <- NR(theta0 = c(0, 0), niter = 10, y = y, X = X[, -c(1,3)])
+#eta_test
+theta_alder_utbildare <- c(0, eta_test[1], 0, eta_test[2])
+theta_alder_utbildare
+
+score_statistic <- t(S(theta_alder_utbildare,y,X,1000))%*%solve(I(theta_alder_utbildare,y,X,1000))%*%S(theta_alder_utbildare,y,X,1000)
+score_statistic
+pchisq(score_statistic, df = 2, lower.tail = FALSE)
+```
+
+We expand our eta vector using the null hypothesis to obtain theta_alder_utbildare. This vector we then use to compute the generalized score statistic, 10.84..., which then we use to compute a p value for it and gives us 0.0044.
+
+Task 4:
+
+In this last part we are going to compute the profile likelihood on a suitable grid of parameter values then use these to graph the profile likeli hood together with the corresponding estimated likelihood. We will also decidea 95% confidence interval based on the profile likelihood visually from the figure by drawing a horizontal line at a suitable level
+
+```{r}
+theta.Kon <- seq(-1,1,0.01) # example value
+#theta.Kon
+
+profil_theta_likelihood <- c()
+for (i in 1:length(theta.Kon)) {
+  new_theta <- c(0,0,theta.Kon[i],0)
+  profil <- glm.fit(x = X[, -3], y = y,
+                    offset = theta.Kon[i] * X[,3],
+                    family = binomial())
+  new_theta[c(1,2,4)] <- profil$coeff
+  profil_theta_likelihood[i] <- L(new_theta,y,X,1000)/L(theta_est,y,X,1000)
+}
+#profil_theta_likelihood
+
+
+estimated_theta_likelihood <- c()
+for (i in 1:length(theta.Kon)) {
+  new_nr_theta <- c(theta_est[1],theta_est[2],0,theta_est[4])
+  new_nr_theta[3] <- theta.Kon[i]
+  estimated_theta_likelihood[i] <- L(new_nr_theta,y,X,1000)/L(theta_est,y,X,1000)
+}
+
+
+
+#estimated_theta_likelihood
+
+plot(theta.Kon, profil_theta_likelihood,type = "l",col= "red")
+
+points(theta.Kon, estimated_theta_likelihood, type = "l", col = "blue" )
+
+abline(h = exp(-1/2 * qchisq(.95, df=1)), lwd = 2, col = "green")
+#exp(-1/2 * qchisq(.95, df=1)) 
+#1.05*0.135873+0.330364 upper limit for wald
+#-0.39*0.135873+0.330364 lower limit for wald
+```
+
+
+
+
+
+The blue line is the visualization of the estimated likelihood and the red represents the profile likelihood. The green horizontal line represents the 95% confidence interval based on the profile likelihood and it is calculated by using the expression that is marked as a comment in the code chunk above (this is also a standard way of calculating the 95% confidence interval). We can observe visually that theta_kon is approximate 0.4 and lies in the interval of (0.1, 0.6). We then calculate a confidence interval for the wald test using the standard error of 0.135873 and the theta_kon of 0.330364, and we obtain the interval (0.27,0.47) approximated which is a accurate interval to the profile likelihood.    
+
